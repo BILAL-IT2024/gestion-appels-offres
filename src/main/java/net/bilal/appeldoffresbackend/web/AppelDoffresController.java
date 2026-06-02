@@ -18,6 +18,12 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import net.bilal.appeldoffresbackend.services.PdfExportService;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -32,6 +38,7 @@ public class AppelDoffresController {
     private final CsvExportService csvExportService;
     private final AppelDoffresMapper appelDoffresMapper;
     private final ExcelExportService excelExportService;
+    private final PdfExportService pdfExportService;
 
     /* @GetMapping
     public List<AppelDoffres> getAllAppelsOffres() {
@@ -171,6 +178,27 @@ public class AppelDoffresController {
                         MediaType.parseMediaType(
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
+                )
+                .body(file);
+    }
+
+    @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    public ResponseEntity<InputStreamResource> exportPdf(
+            @PathVariable Long id) {
+
+        InputStreamResource file =
+                new InputStreamResource(
+                        pdfExportService.exportAOPdf(id)
+                );
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=appel_offre_" + id + ".pdf"
+                )
+                .contentType(
+                        MediaType.APPLICATION_PDF
                 )
                 .body(file);
     }
