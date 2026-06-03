@@ -8,10 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.access.prepost.PreAuthorize;
-
+import net.bilal.appeldoffresbackend.dtos.DashboardStatsDTO;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,35 +28,22 @@ public class DashboardController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public Map<String, Object> getDashboardStats() {
+    public DashboardStatsDTO getDashboardStats() {
 
-        Map<String, Object> stats = new LinkedHashMap<>();;
+        long totalClients = clientRepository.count();
+        long totalAppelsOffres = appelDoffresRepository.count();
+        long totalConsultations = consultationRepository.count();
+        long totalMarches = marcheRepository.count();
+        long totalCommandes = commandeRepository.count();
+        long totalPaiements = paiementRepository.count();
 
-        stats.put("totalClients",
-                clientRepository.count());
-
-        stats.put("totalAppelsOffres",
-                appelDoffresRepository.count());
-
-        stats.put("totalConsultations",
-                consultationRepository.count());
-
-        stats.put("totalMarches",
-                marcheRepository.count());
-
-        stats.put("totalCommandes",
-                commandeRepository.count());
-
-        stats.put("totalPaiements",
-                paiementRepository.count());
-
-        stats.put("chiffreAffaireTotal",
-                paiementRepository.getTotalChiffreAffaire());
+        double chiffreAffaireTotal =
+                paiementRepository.getTotalChiffreAffaire();
 
         long totalAO = appelDoffresRepository.count();
 
         long aoAdjuges =
-                appelDoffresRepository.countBystatut("ADJUGE");
+                appelDoffresRepository.countByStatut("ADJUGE");
 
         double tauxReussite = 0;
 
@@ -67,11 +52,53 @@ public class DashboardController {
                     ((double) aoAdjuges / totalAO) * 100;
         }
 
-        stats.put("aoAdjuges", aoAdjuges);
+        tauxReussite =
+                Math.round(tauxReussite * 100.0) / 100.0;
 
-        stats.put("tauxReussite", tauxReussite);
+        long aoEnCours =
+                appelDoffresRepository.countByStatut("EN_COURS");
 
-        return stats;
+        long aoAnnules =
+                appelDoffresRepository.countByStatut("ANNULE");
+
+        double montantTotalAO =
+                appelDoffresRepository.findAll()
+                        .stream()
+                        .filter(ao -> ao.getMontantEstime() != null)
+                        .mapToDouble(AppelDoffres::getMontantEstime)
+                        .sum();
+
+        String topClient =
+                appelDoffresRepository.findAll()
+                        .stream()
+                        .filter(ao -> ao.getClient() != null)
+                        .collect(
+                                java.util.stream.Collectors.groupingBy(
+                                        ao -> ao.getClient().getRaisonSociale(),
+                                        java.util.stream.Collectors.counting()
+                                )
+                        )
+                        .entrySet()
+                        .stream()
+                        .max(Map.Entry.comparingByValue())
+                        .map(Map.Entry::getKey)
+                        .orElse("Aucun client");
+
+        return new DashboardStatsDTO(
+                totalClients,
+                totalAppelsOffres,
+                totalConsultations,
+                totalMarches,
+                totalCommandes,
+                totalPaiements,
+                chiffreAffaireTotal,
+                aoAdjuges,
+                tauxReussite,
+                aoEnCours,
+                aoAnnules,
+                montantTotalAO,
+                topClient
+        );
     }
 
     @GetMapping("/alertes/appels-offres")

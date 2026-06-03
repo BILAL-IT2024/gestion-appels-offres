@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface AppelDoffresRepository extends JpaRepository<AppelDoffres, Long> {
 
-    long countBystatut(String statut);
+    long countByStatut(String statut);
 
     @Query("""
 SELECT a FROM AppelDoffres a
