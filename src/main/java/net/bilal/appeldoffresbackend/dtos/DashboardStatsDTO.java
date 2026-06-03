@@ -34,4 +34,8 @@ public class DashboardStatsDTO {
     private double montantTotalAO;
 
     private String topClient;
+
+    private long aoEnRetard;
+
+    private long aoUrgents;
 }

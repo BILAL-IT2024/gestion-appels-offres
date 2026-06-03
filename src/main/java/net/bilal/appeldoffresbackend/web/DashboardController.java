@@ -1,15 +1,15 @@
 package net.bilal.appeldoffresbackend.web;
 
 import lombok.RequiredArgsConstructor;
+import net.bilal.appeldoffresbackend.dtos.AlerteAppelOffreDTO;
+import net.bilal.appeldoffresbackend.dtos.DashboardStatsDTO;
 import net.bilal.appeldoffresbackend.entities.AppelDoffres;
 import net.bilal.appeldoffresbackend.repositories.*;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.access.prepost.PreAuthorize;
-import net.bilal.appeldoffresbackend.dtos.DashboardStatsDTO;
+import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -84,6 +84,31 @@ public class DashboardController {
                         .map(Map.Entry::getKey)
                         .orElse("Aucun client");
 
+        LocalDate today = LocalDate.now();
+
+        long aoEnRetard =
+                appelDoffresRepository.findAll()
+                        .stream()
+                        .filter(ao ->
+                                ao.getDateLimite() != null
+                                        &&
+                                        ao.getDateLimite().isBefore(today)
+                        )
+                        .count();
+
+        long aoUrgents =
+                appelDoffresRepository.findAll()
+                        .stream()
+                        .filter(ao ->
+                                ao.getDateLimite() != null
+                                        &&
+                                        !ao.getDateLimite().isBefore(today)
+                                        &&
+                                        ao.getDateLimite()
+                                                .isBefore(today.plusDays(8))
+                        )
+                        .count();
+
         return new DashboardStatsDTO(
                 totalClients,
                 totalAppelsOffres,
@@ -97,15 +122,51 @@ public class DashboardController {
                 aoEnCours,
                 aoAnnules,
                 montantTotalAO,
-                topClient
+                topClient,
+                aoEnRetard,
+                aoUrgents
         );
     }
 
     @GetMapping("/alertes/appels-offres")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public List<AppelDoffres> getAOUrgents() {
+    public List<AlerteAppelOffreDTO> getAOUrgents() {
+
+        LocalDate today = LocalDate.now();
 
         return appelDoffresRepository
-                .getAppelsOffresUrgents(LocalDate.now().plusDays(7));
+                .getAppelsOffresUrgents(today.plusDays(7))
+                .stream()
+                .map(ao -> {
+
+                    long joursRestants =
+                            ao.getDateLimite() != null
+                                    ? ChronoUnit.DAYS.between(
+                                    today,
+                                    ao.getDateLimite()
+                            )
+                                    : 0;
+
+                    String etatAlerte;
+
+                    if (joursRestants < 0) {
+                        etatAlerte = "EN_RETARD";
+                    } else if (joursRestants <= 7) {
+                        etatAlerte = "URGENT";
+                    } else {
+                        etatAlerte = "NORMAL";
+                    }
+
+                    return new AlerteAppelOffreDTO(
+                            ao.getId(),
+                            ao.getReference(),
+                            ao.getObjet(),
+                            ao.getDateLimite(),
+                            joursRestants,
+                            ao.getStatut(),
+                            etatAlerte
+                    );
+                })
+                .toList();
     }
 }
