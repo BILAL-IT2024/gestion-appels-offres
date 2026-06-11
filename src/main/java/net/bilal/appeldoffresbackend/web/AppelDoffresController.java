@@ -77,11 +77,14 @@ public class AppelDoffresController {
 
     @GetMapping("/search")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public List<AppelDoffres> searchAO(
+    public List<AppelDoffresDTO> searchAO(
             @RequestParam String keyword) {
 
         return appelDoffresRepository
-                .findByReferenceContainingIgnoreCase(keyword);
+                .findByReferenceContainingIgnoreCase(keyword)
+                .stream()
+                .map(appelDoffresMapper::fromAppelDoffres)
+                .toList();
     }
 
     @GetMapping("/pagination")
